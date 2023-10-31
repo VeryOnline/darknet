@@ -1,6 +1,12 @@
 #include "image_opencv.h"
 #include <iostream>
 
+#ifdef WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
 #ifdef OPENCV
 #include "utils.h"
 
@@ -600,13 +606,19 @@ extern "C" cap_cv* get_capture_video_stream(const char *path) {
 }
 // ----------------------------------------
 
-extern "C" cap_cv* get_capture_webcam(int index)
+extern "C" cap_cv* get_capture_webcam(int index, int iwidth, int iheight)
 {
     cv::VideoCapture* cap = NULL;
     try {
         cap = new cv::VideoCapture(index);
-        //cap->set(CV_CAP_PROP_FRAME_WIDTH, 1280);
-        //cap->set(CV_CAP_PROP_FRAME_HEIGHT, 960);
+        if (iwidth != -1)
+        {
+            cap->set(3, iwidth);
+        }
+        if (iheight != -1)
+        {
+            cap->set(4, iheight);
+        }
     }
     catch (...) {
         cerr << " OpenCV exception: Web-camera " << index << " can't be opened! \n";
@@ -1044,16 +1056,34 @@ extern "C" mat_cv* draw_train_chart(char *windows_name, float max_img_loss, int 
 {
     int img_offset = 60;
     int draw_size = img_size - img_offset;
-    cv::Mat *img_ptr = new cv::Mat(img_size, img_size, CV_8UC3, CV_RGB(255, 255, 255));
+    cv::Mat* img_ptr = new cv::Mat(img_size, img_size, CV_8UC3, CV_RGB(255, 255, 255));
+    try
+    {
+        if (chart_path != NULL && chart_path[0] != '\0')
+        {
+            if (access(chart_path, 0) == 0)
+            {
+                *img_ptr = cv::imread(chart_path);
+            }
+        }
+    }
+    catch (...)
+    {
+        cerr << "OpenCV exception: draw_train_chart() \n";
+    }
+    
     cv::Mat &img = *img_ptr;
     cv::Point pt1, pt2, pt_text;
 
-    try {
+    try
+    {
         // load chart from file
-        if (chart_path != NULL && chart_path[0] != '\0') {
-            *img_ptr = cv::imread(chart_path);
-        }
-        else {
+//         if (chart_path != NULL && chart_path[0] != '\0')
+//         {
+//             *img_ptr = cv::imread(chart_path);
+//         }
+//         else
+        {
             // draw new chart
             char char_buff[100];
             int i;
@@ -1091,7 +1121,8 @@ extern "C" mat_cv* draw_train_chart(char *windows_name, float max_img_loss, int 
             cv::putText(img, "Press 's' to save : chart.png", cv::Point(5, img_size - 10), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.7, CV_RGB(0, 0, 0), 1, CV_AA);
         }
 
-        if (!dont_show) {
+        if (!dont_show)
+        {
             printf(" If error occurs - run training with flag: -dont_show \n");
             cv::namedWindow(windows_name, cv::WINDOW_NORMAL);
             cv::moveWindow(windows_name, 0, 0);
@@ -1100,7 +1131,8 @@ extern "C" mat_cv* draw_train_chart(char *windows_name, float max_img_loss, int 
             cv::waitKey(20);
         }
     }
-    catch (...) {
+    catch (...)
+    {
         cerr << "OpenCV exception: draw_train_chart() \n";
     }
     return (mat_cv*)img_ptr;
